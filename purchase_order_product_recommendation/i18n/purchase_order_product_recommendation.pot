@@ -24,6 +24,11 @@ msgid "Cancel"
 msgstr ""
 
 #. module: purchase_order_product_recommendation
+#: model:ir.model.fields,help:purchase_order_product_recommendation.field_purchase_order_recommendation_warehouse_ids
+msgid "Constrain search to an specific warehouse"
+msgstr ""
+
+#. module: purchase_order_product_recommendation
 #: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_create_uid
 #: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_line_create_uid
 msgid "Created by"
@@ -54,6 +59,11 @@ msgstr ""
 #: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_display_name
 #: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_line_display_name
 msgid "Display Name"
+msgstr ""
+
+#. module: purchase_order_product_recommendation
+#: model:ir.model.fields,help:purchase_order_product_recommendation.field_purchase_order_recommendation_product_category_ids
+msgid "Filter by product internal category"
 msgstr ""
 
 #. module: purchase_order_product_recommendation
@@ -121,6 +131,11 @@ msgid "Product"
 msgstr ""
 
 #. module: purchase_order_product_recommendation
+#: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_product_category_ids
+msgid "Product Categories"
+msgstr ""
+
+#. module: purchase_order_product_recommendation
 #: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_line_ids
 msgid "Products"
 msgstr ""
@@ -181,13 +196,18 @@ msgid "Recommended products for current purchase order"
 msgstr ""
 
 #. module: purchase_order_product_recommendation
-#: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_show_all_partner_products
-msgid "Show all products"
+#: model:ir.model.fields,help:purchase_order_product_recommendation.field_purchase_order_recommendation_show_all_partner_products
+msgid "Show all products with supplier infos for this supplier"
 msgstr ""
 
 #. module: purchase_order_product_recommendation
-#: model:ir.model.fields,help:purchase_order_product_recommendation.field_purchase_order_recommendation_show_all_partner_products
-msgid "Show all products with supplier infos for this supplier"
+#: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_show_all_products
+msgid "Show all purchasable products"
+msgstr ""
+
+#. module: purchase_order_product_recommendation
+#: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_show_all_partner_products
+msgid "Show all supplier products"
 msgstr ""
 
 #. module: purchase_order_product_recommendation
@@ -196,7 +216,7 @@ msgid "Stablish a limit on how many recommendations you want to get.Leave it as 
 msgstr ""
 
 #. module: purchase_order_product_recommendation
-#: code:addons/purchase_order_product_recommendation/wizards/purchase_order_recommendation.py:53
+#: code:addons/purchase_order_product_recommendation/wizards/purchase_order_recommendation.py:71
 #, python-format
 msgid "This wizard is only valid for purchases"
 msgstr ""
@@ -242,8 +262,23 @@ msgid "Units Virtual Available"
 msgstr ""
 
 #. module: purchase_order_product_recommendation
+#: model:ir.model.fields,help:purchase_order_product_recommendation.field_purchase_order_recommendation_show_all_products
+msgid "Useful if a product hasn't been selled by the partner yet"
+msgstr ""
+
+#. module: purchase_order_product_recommendation
 #: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_line_partner_id
 msgid "Vendor"
+msgstr ""
+
+#. module: purchase_order_product_recommendation
+#: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_warehouse_ids
+msgid "Warehouse"
+msgstr ""
+
+#. module: purchase_order_product_recommendation
+#: model:ir.model.fields,field_description:purchase_order_product_recommendation.field_purchase_order_recommendation_warehouse_count
+msgid "Warehouse Count"
 msgstr ""
 
 #. module: purchase_order_product_recommendation

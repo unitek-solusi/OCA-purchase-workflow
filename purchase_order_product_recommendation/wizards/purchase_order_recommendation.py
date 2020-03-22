@@ -42,9 +42,27 @@ class PurchaseOrderRecommendation(models.TransientModel):
              'Leave it as 0 to set no limit',
     )
     show_all_partner_products = fields.Boolean(
-        string='Show all products',
+        string='Show all supplier products',
         default=False,
         help='Show all products with supplier infos for this supplier',
+    )
+    show_all_products = fields.Boolean(
+        string='Show all purchasable products',
+        default=False,
+        help="Useful if a product hasn't been selled by the partner yet",
+    )
+    product_category_ids = fields.Many2many(
+        comodel_name='product.category',
+        string="Product Categories",
+        help='Filter by product internal category',
+    )
+    warehouse_ids = fields.Many2many(
+        comodel_name='stock.warehouse',
+        string='Warehouse',
+        help='Constrain search to an specific warehouse',
+    )
+    warehouse_count = fields.Integer(
+        default=lambda self: len(self.env['stock.warehouse'].search([])),
     )
 
     @api.model
@@ -60,29 +78,63 @@ class PurchaseOrderRecommendation(models.TransientModel):
                fields.Datetime.from_string(self.date_begin)).days
         return day
 
+    def _get_supplier_products(self):
+        """Common method to be used for field domain filters"""
+        supplierinfo_obj = self.env['product.supplierinfo'].with_context(
+            prefetch_fields=False)
+        partner = self.order_id.partner_id.commercial_partner_id
+        supplierinfos = supplierinfo_obj.search([('name', '=', partner.id)])
+        product_tmpls = supplierinfos.mapped('product_tmpl_id')
+        products = supplierinfos.mapped('product_id')
+        products += product_tmpls.mapped('product_variant_ids')
+        return products
+
+    def _get_products(self):
+        """Override to filter products show_all_partner_products is set"""
+        if self.show_all_products:
+            products = self.env['product.product'].search(
+                self._get_all_products_domain())
+        else:
+            products = self._get_supplier_products()
+        # Filter products by category if set.
+        # It will apply to show_all_partner_products as well
+        if self.product_category_ids:
+            products = products.filtered(
+                lambda x: x.categ_id in self.product_category_ids)
+        return products
+
+    def _get_move_line_domain(self, products, src, dst):
+        """Allows to easily extend the domain by third modules"""
+        domain = [
+            ('product_id', 'in', products.ids),
+            ('date', '>=', '{} 00:00:00'.format(self.date_begin)),
+            ('date', '<=', '{} 23:59:59'.format(self.date_end)),
+            ('location_id.usage', '=', src),
+            ('location_dest_id.usage', '=', dst),
+            ('state', '=', 'done'),
+        ]
+        if self.warehouse_ids:
+            domain += [('picking_id.picking_type_id.warehouse_id', 'in',
+                        self.warehouse_ids.ids)]
+        return domain
+
+    def _get_all_products_domain(self):
+        """Override to add more product filters if show_all_products is set"""
+        domain = [
+            ('purchase_ok', '=', True),
+        ]
+        if self.product_category_ids:
+            domain += [('categ_id', 'in', self.product_category_ids.ids)]
+        return domain
+
     @api.multi
     def _find_move_line(self, src='internal', dst='customer'):
         """"Returns a dictionary from the move lines in a range of dates
             from and to given location types"""
-        supplierinfo_obj = self.env['product.supplierinfo'].with_context(
-            prefetch_fields=False)
-        supplierinfos = supplierinfo_obj.search([
-            ('name', '=', self.order_id.partner_id.id)])
-        product_tmpls = supplierinfos.mapped('product_tmpl_id')
-        products = supplierinfos.mapped('product_id')
-        products |= product_tmpls.mapped('product_variant_ids')
+        products = self._get_products()
+        domain = self._get_move_line_domain(products, src, dst)
         found_lines = self.env['stock.move.line'].read_group(
-            [
-                ('product_id', 'in', products.ids),
-                ('date', '>=', '{} 00:00:00'.format(self.date_begin)),
-                ('date', '<=', '{} 23:59:59'.format(self.date_end)),
-                ('location_id.usage', '=', src),
-                ('location_dest_id.usage', '=', dst),
-                ('state', '=', 'done'),
-            ],
-            ['product_id', 'qty_done'],
-            ['product_id'],
-        )
+            domain, ['product_id', 'qty_done'], ['product_id'])
         # Manual ordering that circumvents ORM limitations
         found_lines = sorted(
             found_lines,
@@ -101,7 +153,7 @@ class PurchaseOrderRecommendation(models.TransientModel):
         } for x in found_lines]
         found_lines = {l['id']: l for l in found_lines}
         # Show all products with supplier infos belonging to a partner
-        if self.show_all_partner_products:
+        if self.show_all_partner_products or self.show_all_products:
             for product in products.filtered(
                     lambda p: p.id not in found_lines.keys()):
                 found_lines.update({
@@ -113,11 +165,28 @@ class PurchaseOrderRecommendation(models.TransientModel):
     def _prepare_wizard_line(self, vals, order_line=False):
         """Used to create the wizard line"""
         product_id = order_line and order_line.product_id or vals['product_id']
-        units_available = product_id.qty_available
-        units_virtual_available = product_id.qty_available
+        if self.warehouse_ids:
+            units_available = sum([
+                product_id.with_context(warehouse=wh).qty_available
+                for wh in self.warehouse_ids.ids
+            ])
+            units_virtual_available = sum([
+                product_id.with_context(warehouse=wh).virtual_available
+                for wh in self.warehouse_ids.ids
+            ])
+        else:
+            units_available = product_id.qty_available
+            units_virtual_available = product_id.virtual_available
         qty_to_order = abs(
             min(0, units_virtual_available - vals.get('qty_delivered', 0)))
         vals['is_modified'] = bool(qty_to_order)
+        units_included = order_line and order_line.product_qty or qty_to_order
+        price_unit = product_id._select_seller(
+            partner_id=self.order_id.partner_id,
+            date=fields.Date.today(),
+            quantity=units_included,
+            uom_id=product_id.uom_po_id,
+        ).price
         return {
             'purchase_line_id': order_line and order_line.id,
             'product_id': product_id.id,
@@ -129,14 +198,15 @@ class PurchaseOrderRecommendation(models.TransientModel):
             'units_avg_delivered': (vals.get('qty_delivered', 0) /
                                     self._get_total_days()),
             'units_delivered': vals.get('qty_delivered', 0),
-            'units_included': (order_line and order_line.product_qty or
-                               qty_to_order),
+            'units_included': units_included,
+            'price_unit': price_unit,
             'is_modified': vals.get('is_modified', False),
         }
 
     @api.multi
     @api.onchange('order_id', 'date_begin', 'date_end', 'line_amount',
-                  'show_all_partner_products')
+                  'show_all_partner_products', 'show_all_products',
+                  'product_category_ids', 'warehouse_ids')
     def _generate_recommendations(self):
         """Generate lines according to received and delivered items"""
         self.line_ids = False
@@ -227,7 +297,7 @@ class PurchaseOrderRecommendationLine(models.TransientModel):
         string='Product',
     )
     price_unit = fields.Monetary(
-        compute='_compute_price_unit',
+        readonly=True,
     )
     times_delivered = fields.Integer(
         readonly=True,
@@ -264,20 +334,15 @@ class PurchaseOrderRecommendationLine(models.TransientModel):
     )
     is_modified = fields.Boolean()
 
-    @api.multi
-    @api.depends('partner_id', 'product_id', 'units_included')
-    def _compute_price_unit(self):
-        for one in self:
-            one.price_unit = one.product_id._select_seller(
-                partner_id=one.partner_id,
-                date=fields.Date.today(),
-                quantity=one.units_included,
-                uom_id=one.product_id.uom_po_id,
-            ).price
-
     @api.onchange('units_included')
     def _onchange_units_included(self):
         self.is_modified = bool(self.purchase_line_id or self.units_included)
+        self.price_unit = self.product_id._select_seller(
+            partner_id=self.partner_id,
+            date=fields.Date.today(),
+            quantity=self.units_included,
+            uom_id=self.product_id.uom_po_id,
+        ).price
 
     @api.multi
     def _prepare_update_po_line(self):
