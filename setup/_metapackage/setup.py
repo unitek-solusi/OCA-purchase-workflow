@@ -21,6 +21,7 @@ setuptools.setup(
         'odoo11-addon-purchase_last_price_info',
         'odoo11-addon-purchase_line_procurement_group',
         'odoo11-addon-purchase_location_by_line',
+        'odoo11-addon-purchase_manual_delivery',
         'odoo11-addon-purchase_minimum_amount',
         'odoo11-addon-purchase_open_qty',
         'odoo11-addon-purchase_order_approval_block',
@@ -45,6 +46,7 @@ setuptools.setup(
         'odoo11-addon-purchase_request_tier_validation',
         'odoo11-addon-purchase_request_usage_department',
         'odoo11-addon-purchase_stock_price_unit_sync',
+        'odoo11-addon-purchase_stock_return_request',
         'odoo11-addon-purchase_tier_validation',
         'odoo11-addon-purchase_triple_discount',
         'odoo11-addon-stock_landed_cost_company_percentage',
@@ -53,5 +55,6 @@ setuptools.setup(
     classifiers=[
         'Programming Language :: Python',
         'Framework :: Odoo',
+        'Framework :: Odoo :: 11.0',
     ]
 )
